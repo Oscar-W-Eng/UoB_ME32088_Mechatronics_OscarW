@@ -58,9 +58,10 @@ while(True):
     
     # Convert the image from the camera to Gray scale
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
     # Apply Canny edge detection
-    canny = cv2.Canny(gray,100,200)
+    canny = cv2.Canny(gray,50,100)
     
     # Display the original frame in a window
     cv2.imshow('frame-image',frame)
