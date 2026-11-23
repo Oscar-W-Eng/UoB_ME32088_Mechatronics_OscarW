@@ -12,6 +12,7 @@ import numpy as np
 # This is a library to get access to time-related functionalities
 import time
 
+import cv2.aruco as aruco
 # sth sth sth
 
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +33,20 @@ logging.info(
     int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
     int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
 )
+
+# Load camera calibration data
+camera_calibration=np.load('Sample_Calibration.npz') 
+CM=camera_calibration['CM'] #camera matrix 
+dist_coef=camera_calibration['dist_coef']
+
+marker_size = 40 
+aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50) 
+parameters = aruco.DetectorParameters() 
+detector = aruco.ArucoDetector(aruco_dict, parameters)
+
+half = marker_size / 2 
+marker_points = np.array([[-half, half, 0], [half, half, 0], [half, -half, 0], [-half, -half, 0]], dtype=np.float32) 
+
 
 #Create two opencv named windows
 cv2.namedWindow("frame-image", cv2.WINDOW_AUTOSIZE)
@@ -60,6 +75,27 @@ while(True):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
+    corners, ids, rejectedImgPoints = detector.detectMarkers(gray)
+    out = aruco.drawDetectedMarkers(frame, corners, ids)
+
+    if len(corners) > 0:
+        ok, rvec, tvec = cv2.solvePnP(
+            marker_points,
+            corners[0],
+            CM,
+            dist_coef,
+            flags=cv2.SOLVEPNP_IPPE_SQUARE
+        )
+
+        if ok:
+            print(f"Marker {ids.flatten()[0]} translation (mm): {tvec.flatten()}: {rvec.flatten()}")
+
+            out = cv2.drawFrameAxes(
+                out, CM, dist_coef, rvec, tvec, 10
+            )
+
+   
+
     # Apply Canny edge detection
     canny = cv2.Canny(gray,50,100)
     
@@ -71,6 +107,11 @@ while(True):
 
     # Display the grey image in another window
     cv2.imshow('gray-image',gray)
+
+    cv2.imshow('out', out)
+
+   
+    
     
     # Stop the performance counter
     end = time.perf_counter()
