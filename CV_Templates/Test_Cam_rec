@@ -1,0 +1,172 @@
+"""
+ArUco Target Tracker for Gantry & Laser Control
+Detects ArUco ID and (X, Y, Z) position in millimeters and sends it to Simulink via UDP.
+"""
+
+# ==============================================================================
+# STEP 1: IMPORT LIBRARIES
+# ==============================================================================
+import cv2                  # OpenCV for camera capture and image processing
+import cv2.aruco as aruco   # ArUco marker detection module
+import numpy as np          # Math and array handling
+import socket               # Network communication (sends data to Simulink)
+import struct               # Packs numbers into bytes for Simulink
+import time                 # Measures loop speed (FPS)
+import logging              # Prints clean status messages
+
+
+# ==============================================================================
+# STEP 2: USER SETTINGS (EDIT THESE TO MATCH YOUR SETUP)
+# ==============================================================================
+CAMERA_INDEX = 1            # 0 is usually built-in webcam; 1 is external USB camera
+FRAME_WIDTH = 1280          # Lowered from 1920x1080 to 1280x720 for faster FPS on Pi
+FRAME_HEIGHT = 720
+
+MARKER_SIZE_MM = 40.0       # Physical side length of your printed ArUco marker (mm)
+CALIB_FILE = 'Sample_Calibration.npz'
+
+# Physical offset between camera center and laser dot (measure with a ruler in mm)
+LASER_OFFSET_X_MM = 0.0     
+LASER_OFFSET_Y_MM = 0.0     
+
+# Simulink UDP connection settings
+SIMULINK_IP = "138.38.228.173"   # Use "127.0.0.1" if Python & Simulink are both on the Pi,
+                            # or enter the Raspberry Pi's IP address if running on a PC.
+SIMULINK_PORT = 5005        # Must match the port in Simulink's 'UDP Receive' block
+
+SHOW_VIDEO = True           # Set to False once tested to run even faster without a screen
+
+
+# ==============================================================================
+# STEP 3: CONNECT TO THE USB CAMERA
+# ==============================================================================
+logging.basicConfig(level=logging.INFO)
+
+cap = cv2.VideoCapture(CAMERA_INDEX)
+if not cap.isOpened():
+    logging.error(f"Could not open camera {CAMERA_INDEX}")
+    raise SystemExit(1)
+
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+logging.info(
+    "Camera opened at %dx%d",
+    int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+    int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+)
+
+
+# ==============================================================================
+# STEP 4: LOAD CALIBRATION & SET UP ARUCO DETECTOR
+# ==============================================================================
+# Load camera lens calibration so millimeter measurements are accurate
+camera_calibration = np.load(CALIB_FILE)
+CM = camera_calibration['CM']               # Camera intrinsic matrix
+dist_coef = camera_calibration['dist_coef'] # Lens distortion coefficients
+
+# Set up the 4x4 ArUco marker dictionary and detector
+aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+parameters = aruco.DetectorParameters()
+detector = aruco.ArucoDetector(aruco_dict, parameters)
+
+# Define the 3D corner coordinates of the flat square marker (in mm)
+half = MARKER_SIZE_MM / 2.0
+marker_points = np.array([
+    [-half,  half, 0],
+    [ half,  half, 0],
+    [ half, -half, 0],
+    [-half, -half, 0]
+], dtype=np.float32)
+
+
+# ==============================================================================
+# STEP 5: SET UP UDP SENDER FOR SIMULINK
+# ==============================================================================
+udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+logging.info(f"Sending UDP packets to {SIMULINK_IP}:{SIMULINK_PORT}")
+
+
+# ==============================================================================
+# STEP 6: MAIN LOOP (CAPTURE -> DETECT -> MEASURE -> SEND TO SIMULINK)
+# ==============================================================================
+last_fps_log = time.perf_counter()
+
+while True:
+    loop_start = time.perf_counter()
+
+    # 1. Grab a frame from the USB camera
+    ret, frame = cap.read()
+    if not ret:
+        logging.error("Failed to read frame from camera.")
+        break
+
+    # 2. Convert to grayscale (ArUco detection only needs black-and-white)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # 3. Search the image for ArUco markers
+    corners, ids, _ = detector.detectMarkers(gray)
+
+    # Default outputs to send to Simulink if NO target is found
+    target_detected = 0.0
+    target_id = -1.0
+    pos_x_mm = 0.0
+    pos_y_mm = 0.0
+    pos_z_mm = 0.0
+
+    # 4. If at least one marker is found, calculate its 3D position
+    if ids is not None and len(corners) > 0:
+        # Track the first detected marker (index 0)
+        ok, rvec, tvec = cv2.solvePnP(
+            marker_points,
+            corners[0],
+            CM,
+            dist_coef,
+            flags=cv2.SOLVEPNP_IPPE_SQUARE
+        )
+
+        if ok:
+            target_detected = 1.0
+            target_id = float(ids.flatten()[0])
+
+            # Extract X, Y, Z position in millimeters and apply laser offset
+            raw_x, raw_y, raw_z = tvec.flatten()
+            pos_x_mm = float(raw_x - LASER_OFFSET_X_MM)
+            pos_y_mm = float(raw_y - LASER_OFFSET_Y_MM)
+            pos_z_mm = float(raw_z)
+
+            # Draw outline, ID, and 3D axes on the video feed for debugging
+            if SHOW_VIDEO:
+                aruco.drawDetectedMarkers(frame, corners, ids)
+                cv2.drawFrameAxes(frame, CM, dist_coef, rvec, tvec, 20)
+
+    # 5. Send the 5 values to Simulink as 64-bit floats ('5d' = 5 doubles)
+    packet = struct.pack('5d', target_detected, target_id, pos_x_mm, pos_y_mm, pos_z_mm)
+    udp_socket.sendto(packet, (SIMULINK_IP, SIMULINK_PORT))
+
+    # 6. Show live video feed with live coordinate readout (press 'q' to quit)
+    if SHOW_VIDEO:
+        status_text = (
+            f"Found: {int(target_detected)} | ID: {int(target_id)} | "
+            f"X: {pos_x_mm:.1f}mm  Y: {pos_y_mm:.1f}mm  Z: {pos_z_mm:.1f}mm"
+        )
+        cv2.putText(frame, status_text, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+        cv2.imshow('Gantry Vision Feed', frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    # 7. Log frame rate once per second
+    now = time.perf_counter()
+    if now - last_fps_log >= 1.0:
+        fps = 1.0 / max(now - loop_start, 1e-6)
+        logging.info(f"FPS: {fps:.1f} | {status_text if SHOW_VIDEO else ''}")
+        last_fps_log = now
+
+
+# ==============================================================================
+# STEP 7: CLEAN SHUTDOWN
+# ==============================================================================
+cap.release()
+udp_socket.close()
+cv2.destroyAllWindows()
+logging.info("System shut down cleanly.")
