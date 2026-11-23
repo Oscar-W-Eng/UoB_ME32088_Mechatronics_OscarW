@@ -23,7 +23,7 @@ FRAME_WIDTH = 1280          # Lowered from 1920x1080 to 1280x720 for faster FPS 
 FRAME_HEIGHT = 720
 
 MARKER_SIZE_MM = 40.0       # Physical side length of your printed ArUco marker (mm)
-CALIB_FILE = 'Sample_Calibration.npz'
+CALIB_FILE = 'Calibration1.npz'
 
 # Physical offset between camera center and laser dot (measure with a ruler in mm)
 LASER_OFFSET_X_MM = 0.0     
