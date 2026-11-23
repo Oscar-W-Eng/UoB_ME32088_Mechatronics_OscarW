@@ -12,6 +12,8 @@ import numpy as np
 # This is a library to get access to time-related functionalities
 import time
 
+# sth sth sth
+
 logging.basicConfig(level=logging.INFO)
 
 # Select the first camera (0) that is connected to the machine
