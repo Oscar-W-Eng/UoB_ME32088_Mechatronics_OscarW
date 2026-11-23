@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Select the first camera (0) that is connected to the machine
 # in Laptops should be the built-in camera
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 if not cap.isOpened():
     logging.error("Could not open camera 0")
     raise SystemExit(1)
