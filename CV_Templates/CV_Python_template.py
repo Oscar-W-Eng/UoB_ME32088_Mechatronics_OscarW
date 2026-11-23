@@ -35,7 +35,7 @@ logging.info(
 )
 
 # Load camera calibration data
-camera_calibration=np.load('Sample_Calibration.npz') 
+camera_calibration=np.load('Calibration1.npz') 
 CM=camera_calibration['CM'] #camera matrix 
 dist_coef=camera_calibration['dist_coef']
 
