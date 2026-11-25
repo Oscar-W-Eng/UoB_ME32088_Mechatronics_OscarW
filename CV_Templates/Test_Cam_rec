@@ -18,9 +18,9 @@ import logging              # Prints clean status messages
 # ==============================================================================
 # STEP 2: USER SETTINGS (EDIT THESE TO MATCH YOUR SETUP)
 # ==============================================================================
-CAMERA_INDEX = 1            # 0 is usually built-in webcam; 1 is external USB camera
-FRAME_WIDTH = 1280          # Lowered from 1920x1080 to 1280x720 for faster FPS on Pi
-FRAME_HEIGHT = 720
+CAMERA_INDEX = 0            # 0 is usually built-in webcam; 1 is external USB camera
+FRAME_WIDTH = 1920          # Lowered from 1920x1080 to 1280x720 for faster FPS on Pi
+FRAME_HEIGHT = 1080
 
 MARKER_SIZE_MM = 40.0       # Physical side length of your printed ArUco marker (mm)
 CALIB_FILE = 'Calibration1.npz'
@@ -62,6 +62,7 @@ logging.info(
 # Load camera lens calibration so millimeter measurements are accurate
 camera_calibration = np.load(CALIB_FILE)
 CM = camera_calibration['CM']               # Camera intrinsic matrix
+print("CM: \n", CM)
 dist_coef = camera_calibration['dist_coef'] # Lens distortion coefficients
 
 # Set up the 4x4 ArUco marker dictionary and detector
