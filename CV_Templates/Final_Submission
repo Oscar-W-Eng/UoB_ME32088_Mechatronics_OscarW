@@ -24,7 +24,7 @@ CAMERA_INDEX = 0            # 0 is built-in webcam; 1 is external USB camera
 FRAME_WIDTH = 1920          # Matches Calibration1.npz resolution
 FRAME_HEIGHT = 1080
 
-MARKER_SIZE_MM = 40.0       # Physical side length of your printed ArUco marker (mm)
+MARKER_SIZE_MM = 75.0       # Physical side length of your printed ArUco marker (mm)
 CALIB_FILE = 'Calibration1.npz'
 
 # Physical offset between camera center and laser dot (in mm)
