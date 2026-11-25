@@ -2,7 +2,8 @@
 .vscode
 .venv
 /NewMech2
-/CV_Templates/workdir
+/CV_Templates/workdir/*
+!/CV_Templates/workdir/*.npz
 *.zip
 /Fritzing Schematics/**/*.png
 /Fritzing Schematics/**/*.svg

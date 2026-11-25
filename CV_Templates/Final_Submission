@@ -20,7 +20,7 @@ import logging              # Prints clean status messages
 # ==============================================================================
 # STEP 2: ONE-TIME HARDWARE SETTINGS
 # ==============================================================================
-CAMERA_INDEX = 1            # 0 is built-in webcam; 1 is external USB camera
+CAMERA_INDEX = 0            # 0 is built-in webcam; 1 is external USB camera
 FRAME_WIDTH = 1920          # Matches Calibration1.npz resolution
 FRAME_HEIGHT = 1080
 
