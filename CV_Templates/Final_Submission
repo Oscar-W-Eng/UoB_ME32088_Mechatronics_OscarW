@@ -119,8 +119,8 @@ while True:
         if SHOW_VIDEO:
             aruco.drawDetectedMarkers(frame, corners, ids)
 
-        for i, marker_id_arr in enumerate(ids):
-            current_id = int(marker_id_arr[0])
+        for i, marker_id in enumerate(ids.flatten()):
+            current_id = int(marker_id)
 
             ok, rvec, tvec = cv2.solvePnP(
                 marker_points,
@@ -152,7 +152,7 @@ while True:
 
         # Highlight the marker currently being sent to Simulink with a green dot
         if SHOW_VIDEO and best_corners is not None:
-            center_px = np.mean(best_corners[0], axis=0).astype(int)
+            center_px = np.mean(best_corners.reshape(-1, 2), axis=0).astype(int)
             cv2.circle(frame, tuple(center_px), 10, (0, 255, 0), -1)
 
     # 5. Send the 5 values to Simulink as 64-bit floats ('5d' = 5 doubles)
